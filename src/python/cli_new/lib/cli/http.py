@@ -42,7 +42,10 @@ def read_endpoint(addr, endpoint, config, query=None):
         url = "{addr}/{endpoint}".format(addr=addr, endpoint=endpoint)
         if query is not None:
             url += "?{query}".format(query=urlencode(query))
-        headers = urllib3.make_headers(basic_auth=config.principal() + ":" + config.secret())
+        if (config.principal() != None and config.secret() != None):
+            headers = urllib3.make_headers(basic_auth=config.principal() + ":" + config.secret())
+        else:
+            headers = None
         http = urllib3.PoolManager()
         http_response = http.request('GET', url, headers=headers)
     except Exception as exception:

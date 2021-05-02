@@ -123,12 +123,16 @@ class Config():
         """
         Return the principal in the configuration file
         """
+        if ("principal" not in self.data["master"]):
+            return None
         return self.data["master"]["principal"]
 
     def secret(self):
         """
         Return the secret in the configuration file
         """
+        if ("secret" not in self.data["master"]):
+            return None
         return self.data["master"]["secret"]
 
     def plugins(self):
