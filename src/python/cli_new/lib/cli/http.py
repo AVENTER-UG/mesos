@@ -20,6 +20,7 @@ A collection of http related functions used by the CLI and its Plugins.
 
 import json
 import urllib3
+from urllib.parse import urlencode
 import time
 
 import cli
@@ -40,7 +41,7 @@ def read_endpoint(addr, endpoint, config, query=None):
     try:
         url = "{addr}/{endpoint}".format(addr=addr, endpoint=endpoint)
         if query is not None:
-            url += "?{query}".format(query=urllib.parse.urlencode(query))
+            url += "?{query}".format(query=urlencode(query))
         headers = urllib3.make_headers(basic_auth=config.principal() + ":" + config.secret())
         http = urllib3.PoolManager()
         http_response = http.request('GET', url, headers=headers)

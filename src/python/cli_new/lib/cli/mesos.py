@@ -113,7 +113,7 @@ def get_container_id(task):
         " Please try again.")
 
 
-def get_tasks(master, config, query=None):
+def get_tasks(master, config, query={'order':'asc'}):
     """
     Get the tasks in a Mesos cluster.
     """
