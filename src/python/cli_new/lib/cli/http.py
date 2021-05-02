@@ -19,9 +19,9 @@ A collection of http related functions used by the CLI and its Plugins.
 """
 
 import json
-import urllib3
-from urllib.parse import urlencode
 import time
+from urllib.parse import urlencode
+import urllib3
 
 import cli
 
@@ -42,8 +42,10 @@ def read_endpoint(addr, endpoint, config, query=None):
         url = "{addr}/{endpoint}".format(addr=addr, endpoint=endpoint)
         if query is not None:
             url += "?{query}".format(query=urlencode(query))
-        if (config.principal() != None and config.secret() != None):
-            headers = urllib3.make_headers(basic_auth=config.principal() + ":" + config.secret())
+        if config.principal() is not None and config.secret() is not None:
+            headers = urllib3.make_headers(
+                basic_auth=config.principal() + ":" + config.secret()
+            )
         else:
             headers = None
         http = urllib3.PoolManager()
@@ -57,6 +59,7 @@ def read_endpoint(addr, endpoint, config, query=None):
     return http_response.data.decode('utf-8')
 
 
+# pylint: disable=too-many-arguments
 def get_json(addr, endpoint, config, condition=None, timeout=5, query=None):
     """
     Return the contents of the 'endpoint' at 'addr' as JSON data

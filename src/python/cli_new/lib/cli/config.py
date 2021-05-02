@@ -123,7 +123,7 @@ class Config():
         """
         Return the principal in the configuration file
         """
-        if ("principal" not in self.data["master"]):
+        if "principal" not in self.data["master"]:
             return None
         return self.data["master"]["principal"]
 
@@ -131,7 +131,7 @@ class Config():
         """
         Return the secret in the configuration file
         """
-        if ("secret" not in self.data["master"]):
+        if "secret" not in self.data["master"]:
             return None
         return self.data["master"]["secret"]
 
