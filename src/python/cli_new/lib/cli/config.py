@@ -135,6 +135,49 @@ class Config():
             return None
         return self.data["master"]["secret"]
 
+    def agent_ssl(self):
+        """
+        Return if the agent support ssl
+        """
+        if "agent" in self.data:
+            if "ssl" not in self.data["agent"]:
+                return False
+        if not isinstance(self.data["agent"]["ssl"], bool):
+            raise CLIException("The 'agent->ssl' field must be True/False")
+
+        return self.data["agent"]["ssl"]
+
+    def agent_ssl_verify(self):
+        """
+        Return if the ssl certificate should be verified
+        """
+        if "agent" in self.data:
+            if "ssl_verify" not in self.data["agent"]:
+                return False
+        if not isinstance(self.data["agent"]["ssl_verify"], bool):
+            raise CLIException("The 'agent->ssl_verify'"
+                               "field must be True/False")
+
+        return self.data["agent"]["ssl_verify"]
+
+    def agent_principal(self):
+        """
+        Return the principal in the configuration file
+        """
+        if "agent" in self.data:
+            if "principal" not in self.data["agent"]:
+                return None
+        return self.data["agent"]["principal"]
+
+    def agent_secret(self):
+        """
+        Return the secret in the configuration file
+        """
+        if "agent" in self.data:
+            if "secret" not in self.data["agent"]:
+                return None
+        return self.data["agent"]["secret"]
+
     def plugins(self):
         """
         Parse the plugins listed in the configuration file and return them.
