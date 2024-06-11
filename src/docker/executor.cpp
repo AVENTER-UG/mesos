@@ -295,6 +295,7 @@ public:
       inspectLoop.then(defer(self(), [=](const Docker::Container& container) {
         if (!killed) {
           containerPid = container.pid;
+          containerId = container.id;
 
           // TODO(alexr): Use `protobuf::createTaskStatus()`
           // instead of manually setting fields.
@@ -1061,7 +1062,7 @@ private:
       return ::Error("JSON parse CNI network info failed: " + ipAddress.error());
     }
 
-    // remove the netmask if the IP string
+    // remove netmask from the IP string
     std::size_t pos = ipAddress->value.find("/"); 
     if (pos != std::string::npos) {
         ipAddress->value.erase(pos);
