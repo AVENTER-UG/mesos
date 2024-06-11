@@ -891,11 +891,13 @@ private:
     return commandCNI(container, "ADD");
   }
 
+  // detach CNI from the container
   Try<std::tuple<Subprocess, std::string>> detachCNI() 
   {
     return commandCNI(container, "DEL");
   }
 
+  // function to attach or detach CNI from/to the container
   Try<std::tuple<Subprocess, std::string>> commandCNI(
     const mesos::ContainerInfo& container, 
     const string command) 
