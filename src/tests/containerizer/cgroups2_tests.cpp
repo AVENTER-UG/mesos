@@ -129,6 +129,7 @@ TEST_F(Cgroups2Test, CGROUPS2_Path)
   EXPECT_EQ("/sys/fs/cgroup/", cgroups2::path(cgroups2::ROOT_CGROUP));
   EXPECT_EQ("/sys/fs/cgroup/foo", cgroups2::path("foo"));
   EXPECT_EQ("/sys/fs/cgroup/foo/bar", cgroups2::path("foo/bar"));
+  EXPECT_EQ("/mount/cgroup/foo/bar", cgroups2::path("/mount/cgroup/foo/bar"));
 }
 
 
@@ -663,6 +664,25 @@ INSTANTIATE_TEST_CASE_P(
             // read is blocked
           vector<OpenArgs>{{os::DEV_NULL, O_RDWR}, {os::DEV_NULL, O_RDONLY}}
         },
+        // Do not allow device if it's on both allow and deny list
+        DeviceControllerTestParams{
+          vector<devices::Entry>{
+            *devices::Entry::parse("c 1:3 w"),
+            *devices::Entry::parse("b 1:3 w")},
+          vector<devices::Entry>{*devices::Entry::parse("c 1:3 w")},
+          vector<OpenArgs>{},
+            // write-only is blocked
+          vector<OpenArgs>{{os::DEV_NULL, O_WRONLY}}
+        },
+        // Mismatched entry in deny list is ignored and write access is granted
+        DeviceControllerTestParams{
+          vector<devices::Entry>{*devices::Entry::parse("c 1:3 w")},
+          vector<devices::Entry>{*devices::Entry::parse("b 1:3 w")},
+            // write-only allowed
+          vector<OpenArgs>{{os::DEV_NULL, O_WRONLY}},
+            // read is blocked
+          vector<OpenArgs>{{os::DEV_NULL, O_RDWR}, {os::DEV_NULL, O_RDONLY}}
+        },
         // Access to /dev/null is denied because the allowed access is to
         // a different device type with the same major:minor numbers.
         DeviceControllerTestParams{
@@ -681,8 +701,180 @@ INSTANTIATE_TEST_CASE_P(
             {os::DEV_NULL, O_RDWR},
             {os::DEV_NULL, O_RDONLY}},
           vector<OpenArgs>{},
+        },
+        // Allow access with catch-all and specified device
+        DeviceControllerTestParams{
+          vector<devices::Entry>{
+            *devices::Entry::parse("a *:* rwm"),
+            *devices::Entry::parse("c 1:3 w")},
+          vector<devices::Entry>{},
+          vector<OpenArgs>{
+            {os::DEV_NULL, O_WRONLY},
+            {os::DEV_NULL, O_RDWR},
+            {os::DEV_NULL, O_RDONLY}},
+          vector<OpenArgs>{},
+        },
+        // Allow access to all devices except one
+        DeviceControllerTestParams{
+          vector<devices::Entry>{*devices::Entry::parse("a *:* rwm")},
+          vector<devices::Entry>{*devices::Entry::parse("c 1:3 w")},
+          // read is allowed by catch-all
+          vector<OpenArgs>{{os::DEV_NULL, O_RDONLY}},
+          // write-only is blocked
+          vector<OpenArgs>{{os::DEV_NULL, O_WRONLY}}
+        },
+        // Deny access to all devices
+        DeviceControllerTestParams{
+          vector<devices::Entry>{},
+          vector<devices::Entry>{*devices::Entry::parse("a *:* rwm")},
+          vector<OpenArgs>{},
+          vector<OpenArgs>{
+            {os::DEV_NULL, O_WRONLY},
+            {os::DEV_NULL, O_RDWR},
+            {os::DEV_NULL, O_RDONLY}},
+        },
+        // Deny access using catch-all and specified device
+        DeviceControllerTestParams{
+          vector<devices::Entry>{},
+          vector<devices::Entry>{
+            *devices::Entry::parse("c 1:3 w"),
+            *devices::Entry::parse("a *:* rwm")},
+          vector<OpenArgs>{},
+          vector<OpenArgs>{
+            {os::DEV_NULL, O_WRONLY},
+            {os::DEV_NULL, O_RDWR},
+            {os::DEV_NULL, O_RDONLY}},
+        },
+        // Catch-all in both allow and deny list
+        DeviceControllerTestParams{
+          vector<devices::Entry>{
+            *devices::Entry::parse("c 1:3 w"),
+            *devices::Entry::parse("a *:* rwm")},
+          vector<devices::Entry>{*devices::Entry::parse("a *:* rwm")},
+          vector<OpenArgs>{},
+          vector<OpenArgs>{
+            {os::DEV_NULL, O_WRONLY},
+            {os::DEV_NULL, O_RDWR},
+            {os::DEV_NULL, O_RDONLY}},
         }
       ));
+
+
+TEST_F(Cgroups2Test, ROOT_CGROUPS2_AtomicReplace)
+{
+  const string& cgroup = TEST_CGROUP;
+  const vector<devices::Entry>& allow = {*devices::Entry::parse("c 1:3 w")};
+  const vector<devices::Entry>& deny = {};
+  const vector<OpenArgs>& allowed_accesses = {
+      {os::DEV_NULL, O_WRONLY}
+  };
+  const vector<OpenArgs>& blocked_accesses = {
+      {os::DEV_NULL, O_RDWR},
+      {os::DEV_NULL, O_RDONLY}
+  };
+  const vector<devices::Entry>& to_be_replaced_allow = {};
+  const vector<devices::Entry>& to_be_replaced_deny = {
+      *devices::Entry::parse("c 1:3 w")
+  };
+
+  ASSERT_SOME(cgroups2::create(cgroup));
+  string path = cgroups2::path(cgroup);
+
+  Try<vector<uint32_t>> attached = ebpf::cgroups2::attached(path);
+  ASSERT_SOME(attached);
+  ASSERT_EQ(0u, attached->size());
+
+  ASSERT_SOME(
+    devices::configure(cgroup, to_be_replaced_allow, to_be_replaced_deny));
+  attached = ebpf::cgroups2::attached(path);
+  ASSERT_SOME(attached);
+  ASSERT_EQ(1u, attached->size());
+
+  ASSERT_SOME(devices::configure(cgroup, allow, deny));
+  attached = ebpf::cgroups2::attached(path);
+  ASSERT_SOME(attached);
+  ASSERT_EQ(1u, attached->size());
+
+  pid_t pid = ::fork();
+  ASSERT_NE(-1, pid);
+
+  if (pid == 0) {
+    // Move the child process into the newly created cgroup.
+    Try<Nothing> assign = cgroups2::assign(cgroup, ::getpid());
+    if (assign.isError()) {
+      SAFE_EXIT(EXIT_FAILURE, "Failed to assign child process to cgroup");
+    }
+
+    // Check that we can only do the "allowed_accesses".
+    foreach(const OpenArgs& args, allowed_accesses) {
+      if (os::open(args.first, args.second).isError()) {
+        SAFE_EXIT(EXIT_FAILURE, "Expected allowed read to succeed");
+      }
+    }
+    foreach(const OpenArgs& args, blocked_accesses) {
+      if (os::open(args.first, args.second).isSome()) {
+        SAFE_EXIT(EXIT_FAILURE, "Expected blocked read to fail");
+      }
+    }
+
+    ASSERT_SOME(ebpf::cgroups2::detach(path, attached->at(0)));
+
+    // Check that we can do both the "allowed_accesses" and "blocked_accesses".
+    foreach(const OpenArgs& args, allowed_accesses) {
+      if (os::open(args.first, args.second).isError()) {
+        SAFE_EXIT(EXIT_FAILURE, "Expected successful read after detaching"
+                                " device controller program");
+      }
+    }
+    foreach(const OpenArgs& args, blocked_accesses) {
+      if (os::open(args.first, args.second).isError()) {
+        SAFE_EXIT(EXIT_FAILURE, "Expected successful read after detaching"
+                                " device controller program");
+      }
+    }
+
+    ::_exit(EXIT_SUCCESS);
+  }
+
+  AWAIT_EXPECT_WEXITSTATUS_EQ(EXIT_SUCCESS, process::reap(pid));
+}
+
+
+TEST_F(Cgroups2Test, ROOT_CGROUPS2_GetBpfFdById)
+{
+  const string& cgroup = TEST_CGROUP;
+
+  ASSERT_SOME(cgroups2::create(cgroup));
+  string path = cgroups2::path(cgroup);
+
+  Try<vector<uint32_t>> attached = ebpf::cgroups2::attached(path);
+  ASSERT_SOME(attached);
+  ASSERT_EQ(0u, attached->size());
+
+  ASSERT_SOME(devices::configure(cgroup, {}, {}));
+  attached = ebpf::cgroups2::attached(path);
+  ASSERT_SOME(attached);
+  ASSERT_EQ(1u, attached->size());
+
+  Try<int> cgroup_fd = os::open(path, O_DIRECTORY | O_RDONLY | O_CLOEXEC);
+  ASSERT_SOME(cgroup_fd);
+
+  Try<int> program_fd = ebpf::cgroups2::bpf_get_fd_by_id(attached->at(0));
+  ASSERT_SOME(program_fd);
+
+  bpf_attr attr;
+  memset(&attr, 0, sizeof(attr));
+  attr.attach_type = BPF_CGROUP_DEVICE;
+  attr.target_fd = *cgroup_fd;
+  attr.attach_bpf_fd = *program_fd;
+
+  Try<int, ErrnoError> result = ebpf::bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
+
+  os::close(*cgroup_fd);
+  os::close(*program_fd);
+
+  ASSERT_SOME(result);
+}
 
 } // namespace tests {
 

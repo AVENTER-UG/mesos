@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM arm64v8/ubuntu:16.04
+FROM arm64v8/ubuntu:22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies.
 RUN apt-get update && \
@@ -28,32 +30,32 @@ RUN apt-get update && \
       libcurl4-nss-dev \
       libev-dev \
       libevent-dev \
+      libncurses5 \
       libsasl2-dev \
       libssl-dev \
       libsvn-dev \
       libtool \
       maven \
       openjdk-8-jdk \
-      python-dev \
+      python2-dev \
       python-six \
       sed \
       zlib1g-dev \
-      software-properties-common \
-      python-software-properties && \
+      software-properties-common && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists
 
 # Install Python 3.6.
-ENV PYTHON_VERSION=3.6.15
+ARG PYTHON_TARGET_VERSION=3.6.15
 
 # Download and install Python from source
-RUN curl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz -o /tmp/Python-$PYTHON_VERSION.tgz && \
+RUN curl https://www.python.org/ftp/python/$PYTHON_TARGET_VERSION/Python-$PYTHON_TARGET_VERSION.tgz -o /tmp/Python-$PYTHON_TARGET_VERSION.tgz && \
     cd /tmp && \
-    tar xzf Python-$PYTHON_VERSION.tgz && \
-    cd Python-$PYTHON_VERSION && \
+    tar xzf Python-$PYTHON_TARGET_VERSION.tgz && \
+    cd Python-$PYTHON_TARGET_VERSION && \
     ./configure --enable-optimizations && \
     make altinstall && \
-    rm -rf /tmp/Python-$PYTHON_VERSION.tgz /tmp/Python-$PYTHON_VERSION
+    rm -rf /tmp/Python-$PYTHON_TARGET_VERSION.tgz /tmp/Python-$PYTHON_TARGET_VERSION
 
 # Use update-alternatives to set python3.6 as python3.
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.6 1
