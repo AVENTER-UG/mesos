@@ -126,8 +126,8 @@ EXTRA_DIST +=			\
   $(PICOJSON).patch
 
 # We need to patch ZooKeeper in order to get 3.4.8 to compile on PPC LE.
-EXTRA_DIST +=			\
-  $(ZOOKEEPER).patch
+#EXTRA_DIST +=			\
+#  $(ZOOKEEPER).patch
 
 # We need to patch RapidJSON to make it write infinite floating point numbers
 # as "Infinity" and "-Infinity" (i.e., with double quotes) rather than Infinity
@@ -722,6 +722,6 @@ if WITH_BUNDLED_RE2
 	  $(MAKE) $(AM_MAKEFLAGS) DESTDIR=$(INSTALLDIR) install
 endif
 if WITH_BUNDLED_ZOOKEEPER
-	cd $(ZOOKEEPER)/src/c && \
+	cd $(ZOOKEEPER)/zookeeper-client/zookeeper-client-c && \
 	  $(MAKE) $(AM_MAKEFLAGS) DESTDIR=$(INSTALLDIR) install
 endif
