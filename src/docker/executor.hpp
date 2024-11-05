@@ -99,11 +99,11 @@ struct Flags : public virtual mesos::internal::logging::Flags
         "networks.");
   
     add(&Flags::network_cni_config_dir,
-      "network_cni_config_dir",
-      "Directory path of the CNI network configuration files. For each\n"
-      "network that containers launched in Mesos agent can connect to,\n"
-      "the operator should install a network configuration file in JSON\n"
-      "format in the specified directory.");        
+        "network_cni_config_dir",
+        "Directory path of the CNI network configuration files. For each\n"
+        "network that containers launched in Mesos agent can connect to,\n"
+        "the operator should install a network configuration file in JSON\n"
+        "format in the specified directory.");        
   }
 
   Option<std::string> container;
