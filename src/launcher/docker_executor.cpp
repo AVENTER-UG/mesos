@@ -148,14 +148,6 @@ int main(int argc, char** argv)
       << flags.usage("Missing required option --mapped_directory");
   }
 
-  if (flags.network_cni_plugins_dir.isNone()) {
-      flags.network_cni_plugins_dir = "/usr/lib/cni/";
-  }
-
-  if (flags.network_cni_config_dir.isNone()) {
-      flags.network_cni_config_dir = "/etc/mesos/cni/net.d";
-  }
-
   map<string, string> taskEnvironment;
   if (flags.task_environment.isSome()) {
     // Parse the string as JSON.

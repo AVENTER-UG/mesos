@@ -331,7 +331,7 @@ public:
 
             bool useCNI = false;
 #ifdef __linux__  
-            if (network_cni_config_dir.size() > 0 && network_cni_plugins_dir.size() > 0) {
+            if (!network_cni_config_dir.empty() && !network_cni_plugins_dir.empty()) {
               Try<std::tuple<Subprocess, std::string>> cni = attachCNI(task);
               if (!cni.isError()) {
                 Subprocess cniSub = std::get<0>(cni.get());
